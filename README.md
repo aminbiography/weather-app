@@ -149,19 +149,10 @@ https://api.open-meteo.com/v1/forecast?latitude=51.5072&longitude=-0.1276&curren
 
 ---
 
-Would you like me to integrate this author block **into the full README.md** (so it’s ready to upload directly to your repository)?
-I can polish the formatting, emojis, and add a footer credit section to make it look like a professional open-source project.
-
-
----
-
 ## License
 
 This project is released under the **MIT License** — feel free to use and modify it for your own projects.
 
 ----
 
----
-
-Would you like me to **add code examples and screenshots** (in Markdown format) so your README looks even more polished for GitHub or portfolio use?
 
