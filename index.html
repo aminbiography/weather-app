@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Weather App By aminbiography</title>
+<style>
+  :root{--bg1:#343533;--bg2:#85ff00}
+  body{
+    font-family:Arial,system-ui; background:linear-gradient(to bottom,var(--bg1),var(--bg2));
+    color:#fff; margin:0; padding:20px; text-align:center;
+  }
+  h1{margin:.2rem 0 10px}
+
+  /* === Step-by-step rows === */
+  .bar{
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+    width:100%; max-width: 180px; margin: 0 auto 10px;
+  }
+  .suggest-wrap{position:relative; width:100%}        /* input row */
+  input[type="text"]{
+    padding:10px 2px; width:100%; border:none; border-radius:6px; outline:none
+  }
+  button{
+    width:100%; padding:12px 14px; border:none; border-radius:6px;
+    color:#000; background:#85ff00; cursor:pointer
+  }
+  button:hover{background:#c56eea}
+  button[disabled]{opacity:.7; cursor:not-allowed}
+  #refreshBtn{ background:#c56eea }
+  #refreshBtn:hover{ background:#85ff00 }
+
+  /* Weather card now sits below the stacked controls */
+  #weather{
+    margin:16px auto 0; background:rgba(0,0,0,.2); padding:18px; border-radius:10px;
+    min-width:280px; width:min(100%, 920px); min-height:380px; max-width:860px;
+  }
+
+  .forecast{display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:16px}
+  .day{background:rgba(255,255,255,.2); border-radius:8px; padding:10px; width:140px}
+  .muted{opacity:.9}
+
+  /* suggestions */
+  .suggest{
+    position:absolute; left:0; right:0; top:110%; background:#0b1220;
+    border:1px solid rgba(255,255,255,.15); border-radius:8px; overflow:hidden;
+    box-shadow:0 8px 24px rgba(0,0,0,.35); z-index:10; max-height:60vh; overflow:auto
+  }
+  .suggest.hidden{display:none}
+  .suggest-item{padding:10px 12px; text-align:left; cursor:pointer}
+  .suggest-item:hover{background:rgba(255,255,255,.08)}
+
+  .row{margin-top:8px}
+  .spin{display:inline-block; width:16px; height:16px; border-radius:50%; border:2px solid rgba(255,255,255,.35); border-top-color:#fff; animation:spin 1s linear infinite; vertical-align:-3px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* Extra-small phones: forecast tiles go 100% width */
+  @media (max-width: 380px){
+    .day{ width:100%; }
+  }
+  @media (max-width: 480px){
+  .day {
+    width: 100%;
+  }
+}
+  .forecast {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+  }
+
+  .day {
+    flex: 1 1 140px;   /* allows it to shrink/grow */
+    min-width: 120px;
+    max-width: 100%;
+  }
+  @media (max-width: 480px){
+    .day { min-width: 100%; }
+  }
+
+</style>
+</head>
+<body>
+
+<h1>🌦 Weather App</h1>
+<p>Type a city and press Enter or click Search</p>
+
+<!-- STACKED controls -->
+<div class="bar">
+  <div class="suggest-wrap">
+    <input id="cityInput" type="text" placeholder="e.g. Dhaka, Ottawa, Canberra" autocomplete="off"/>
+    <div id="suggest" class="suggest hidden"></div>
+  </div>
+  <button id="searchBtn">Search</button>
+  <button id="geoBtn">Use My Location</button>
+  <button id="refreshBtn" style="display:none">Refresh</button>
+</div>
+
+<div id="weather">Here You Will Get Your Weather Results</div>
+
+<script>
+let lastLocation = null;          // { lat, lon, label }
+let lastQuery = "";               // for duplicate search avoidance
+let activeGeoReq = 0;             // request token to prevent race conditions
+let typingTimer = null;           // debounce handle
+
+const cityInput = document.getElementById('cityInput');
+const suggestBox = document.getElementById('suggest');
+const searchBtn  = document.getElementById('searchBtn');
+const geoBtn     = document.getElementById('geoBtn');
+const weatherBox = document.getElementById('weather');
+const refreshBtn = document.getElementById('refreshBtn');
+
+/* Event wiring */
+searchBtn.addEventListener('click', handleSearchClick);
+geoBtn.addEventListener('click', useMyLocation);
+refreshBtn.addEventListener('click', refreshWeather);
+cityInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); handleSearchClick(); }});
+cityInput.addEventListener('input', onType);
+document.addEventListener('click', (e)=>{ if(!e.target.closest('.suggest-wrap')) hideSuggest(); });
+
+/* Debounced suggestion search */
+function onType(){
+  clearTimeout(typingTimer);
+  const q = cityInput.value.trim();
+  if(q.length < 2){ hideSuggest(); return; }
+  typingTimer = setTimeout(()=> showSuggestions(q), 220);
+}
+
+async function showSuggestions(q){
+  try{
+    const token = ++activeGeoReq;
+    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=5&language=en`);
+    if(!res.ok) throw new Error('Geocoding failed');
+    const data = await res.json();
+    if(token !== activeGeoReq) return; // stale
+
+    if(!data.results || data.results.length === 0){ hideSuggest(); return; }
+
+    suggestBox.innerHTML = data.results.map(r=>{
+      const label = [r.name, r.admin1, r.country].filter(Boolean).join(', ');
+      return `<div class="suggest-item" data-lat="${r.latitude}" data-lon="${r.longitude}" data-label="${escapeHtml(label)}">${escapeHtml(label)}</div>`;
+    }).join('');
+    suggestBox.classList.remove('hidden');
+
+    // click-to-select
+    for(const el of suggestBox.querySelectorAll('.suggest-item')){
+      el.addEventListener('click', ()=>{
+        const lat = parseFloat(el.dataset.lat);
+        const lon = parseFloat(el.dataset.lon);
+        const label = el.dataset.label;
+        cityInput.value = label;
+        hideSuggest();
+        performWeatherFetch({lat, lon, label});
+      });
+    }
+  }catch(e){
+    hideSuggest();
+  }
+}
+
+function hideSuggest(){ suggestBox.classList.add('hidden'); suggestBox.innerHTML = ""; }
+
+/* Search button / Enter */
+async function handleSearchClick(){
+  const q = cityInput.value.trim();
+  if(q.length < 2){ alert('Please enter at least 2 characters.'); return; }
+
+  // Avoid redundant fetch if same query and we already have a location
+  if(q.toLowerCase() === lastQuery.toLowerCase() && lastLocation){
+    performWeatherFetch(lastLocation);
+    return;
+  }
+
+  try{
+    setLoading(true, 'Resolving city…');
+    searchBtn.disabled = true;
+
+    const token = ++activeGeoReq;
+    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en`);
+    if(!res.ok) throw new Error(`Geocoding error (${res.status})`);
+    const data = await res.json();
+    if(token !== activeGeoReq) return; // stale result ignored
+
+    if(!data.results || data.results.length === 0){
+      weatherBox.innerHTML = `<p>City not found. Try a more specific name.</p>`;
+      return;
+    }
+
+    const { latitude, longitude, name, country, admin1 } = data.results[0];
+    const label = [name, admin1, country].filter(Boolean).join(', ');
+    lastQuery = q;
+    performWeatherFetch({lat: latitude, lon: longitude, label});
+  }catch(err){
+    weatherBox.innerHTML = `<p>${err.message || 'Something went wrong.'}</p>`;
+  }finally{
+    setLoading(false);
+    searchBtn.disabled = false;
+    hideSuggest();
+  }
+}
+
+/* Geolocation */
+function useMyLocation(){
+  if(!navigator.geolocation){ alert('Geolocation not supported.'); return; }
+  setLoading(true, 'Getting your location…');
+  searchBtn.disabled = geoBtn.disabled = true;
+
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const { latitude, longitude } = pos.coords;
+    performWeatherFetch({lat: latitude, lon: longitude, label:'Your Location'});
+  }, err=>{
+    setLoading(false);
+    searchBtn.disabled = geoBtn.disabled = false;
+    alert('Failed to get your location.');
+  }, { enableHighAccuracy:true, timeout:10000 });
+}
+
+/* Fetch + render weather */
+async function performWeatherFetch(loc){
+  try{
+    setLoading(true, 'Fetching weather…');
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=auto`;
+    const res = await fetch(url, { cache: 'no-store' });
+    if(!res.ok) throw new Error(`Weather fetch failed (${res.status})`);
+    const data = await res.json();
+
+    const cw = data.current_weather;
+    const daily = data.daily;
+    if(!cw || !daily){ throw new Error('Unexpected API response'); }
+
+    const html = `
+      <h2>Weather in ${escapeHtml(loc.label)}</h2>
+      <p class="muted">Updated: ${formatLocal(cw.time)}</p>
+      <p><strong>Current:</strong> ${cw.temperature}°C | ${cw.windspeed} km/h</p>
+      <div class="forecast">
+        ${daily.time.map((d, i)=>`
+          <div class="day">
+            <h4>${d}</h4>
+            <p>Max: ${daily.temperature_2m_max[i]}°C</p>
+            <p>Min: ${daily.temperature_2m_min[i]}°C</p>
+            <p>${daily.precipitation_sum[i]} mm</p>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    weatherBox.innerHTML = html;
+
+    lastLocation = { ...loc };
+    refreshBtn.style.display = 'inline-block';
+    refreshBtn.disabled = false;
+    searchBtn.disabled = geoBtn.disabled = false;
+  }catch(err){
+    weatherBox.innerHTML = `<p>${err.message || 'Could not load weather.'}</p>`;
+  }finally{
+    setLoading(false);
+  }
+}
+
+/* Refresh */
+
+/* Replace your current Refresh with this "fresh start" reset */
+function refreshWeather(){
+  // Hide suggestions, clear UI, and forget previous location/query
+  hideSuggest();
+  cityInput.value = "";
+  weatherBox.innerHTML = "";          // remove old weather info
+  refreshBtn.style.display = "none";  // hide the refresh button until next result
+  lastLocation = null;
+  lastQuery = "";
+  cityInput.focus();                  // ready for a new order (search)
+}
+
+
+function refreshWeather(){
+  hideSuggest();
+  cityInput.value = "";
+  weatherBox.innerHTML = "<p>Cleared. Enter a city to load new weather.</p>";
+  refreshBtn.style.display = "none";
+  lastLocation = null;
+  lastQuery = "";
+  cityInput.focus();
+}
+
+
+/* Keep the existing helpers (setLoading, formatLocal, escapeHtml) */
+
+
+/* UI helpers */
+function setLoading(on, text=''){
+  if(on){
+    weatherBox.innerHTML = `<p>${text} <span class="spin"></span></p>`;
+  }
+}
+function formatLocal(iso){
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, {weekday:'short', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+</script>
+
+</body>
+</html>
