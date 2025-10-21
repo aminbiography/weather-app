@@ -144,8 +144,8 @@ https://api.open-meteo.com/v1/forecast?latitude=51.5072&longitude=-0.1276&curren
 ## Author
 
 **Developed by [Mohammad Aminul Islam (Amein)](https://github.com/aminbiography)**
-*Web Developer*
-*Cyber Threat Intelligence Associate*
+- *Web Developer*
+- *Cyber Threat Intelligence Associate*
 
 ---
 
