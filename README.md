@@ -1,4 +1,4 @@
-Live URL:  https://aminbiography.github.io/weather-app/ 
+Live URL:  https://aminbiography.github.io/weather-app/  
 
 
 Here’s a clean, professional **`README.md`** you can include for your project.
