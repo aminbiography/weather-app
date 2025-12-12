@@ -4,7 +4,7 @@ Live URL:  https://aminbiography.github.io/weather-app/
 Here’s a clean, professional **`README.md`** you can include for your project.
 It explains what the app does, how to use it, and how developers can improve or extend it 
 
----
+--- 
   
 # Weather App by aminbiography
 
