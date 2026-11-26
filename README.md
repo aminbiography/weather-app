@@ -5,7 +5,7 @@ A responsive, browser-based weather application built with HTML5, CSS3, and Vani
 
 ## Live Demo
 
-[View Weather App](https://aminbiography.github.io/weather-app/)
+[View Weather-App](https://aminbiography.github.io/weather-app/)
 
 ---
 
@@ -1197,6 +1197,6 @@ SOFTWARE.
 
 ---
 
-#WeatherApp #WeatherApplication #WeatherForecast #RealTimeWeather #OpenMeteo #OpenMeteoAPI #GeocodingAPI #JavaScript #VanillaJavaScript #HTML5 #CSS3 #FetchAPI #AsyncAwait #DOMManipulation #GeolocationAPI #WeatherDashboard #CitySearch #Autocomplete #ResponsiveDesign #CSSFlexbox #RESTAPI #APIIntegration #WebDevelopment #FrontendDevelopment #CodingExploration #ResearchProject #MohammadAminulIslam
+#weather-app #WeatherApp #WeatherApplication #WeatherForecast #RealTimeWeather #OpenMeteo #OpenMeteoAPI #GeocodingAPI #JavaScript #VanillaJavaScript #HTML5 #CSS3 #FetchAPI #AsyncAwait #DOMManipulation #GeolocationAPI #WeatherDashboard #CitySearch #Autocomplete #ResponsiveDesign #CSSFlexbox #RESTAPI #APIIntegration #WebDevelopment #FrontendDevelopment #CodingExploration #ResearchProject #MohammadAminulIslam
 
 ---
